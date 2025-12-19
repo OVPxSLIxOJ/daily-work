@@ -1,5 +1,5 @@
 #include <stdio.h>
-bubble(int D[], int n)
+void bubble(int D[], int n)
 {
 	int i = 0;
 	int j = 0;
