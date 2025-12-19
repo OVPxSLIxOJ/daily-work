@@ -16,11 +16,11 @@ int main()
     }
     if(count == 0 && a > 1)
     {
-        printf("%d是素数\n", a);
+        printf("%d is a prime number\n", a);
     }
     else
     {
-        printf("%d不是素数\n", a);
+        printf("%d is not a prime number\n", a);
     }
 
     return 0;
