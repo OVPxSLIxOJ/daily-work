@@ -1,0 +1,238 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>班费小管家</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <style>
+        body {
+            font-family: 'PingFang SC', 'Microsoft YaHei', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen text-gray-800">
+
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        
+        <!-- Header & Balance Card -->
+        <header class="mb-8 text-center">
+            <h1 class="text-3xl font-bold text-indigo-600 mb-2">班费小管家</h1>
+            <p class="text-gray-500 text-sm">记录每一笔班费的去向</p>
+        </header>
+
+        <!-- Balance Display -->
+        <div class="bg-white rounded-2xl shadow-lg p-6 mb-6 transform transition hover:scale-105 duration-300">
+            <h2 class="text-sm uppercase text-gray-500 font-semibold mb-1">当前班费总额</h2>
+            <div id="balance" class="text-4xl font-bold text-gray-900">¥0.00</div>
+            
+            <div class="flex justify-between mt-6 pt-6 border-t border-gray-100">
+                <div class="text-center w-1/2 border-r border-gray-100">
+                    <div class="text-xs text-gray-500 mb-1">总收入</div>
+                    <div id="money-plus" class="text-xl font-semibold text-green-500">+¥0.00</div>
+                </div>
+                <div class="text-center w-1/2">
+                    <div class="text-xs text-gray-500 mb-1">总支出</div>
+                    <div id="money-minus" class="text-xl font-semibold text-red-500">-¥0.00</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add New Transaction Form -->
+        <div class="bg-white rounded-xl shadow-md p-6 mb-6">
+            <h3 class="text-lg font-semibold mb-4 border-b pb-2">新增记账</h3>
+            <form id="form">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <!-- Description -->
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="text">
+                            内容 / 来源
+                        </label>
+                        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                            type="text" id="text" placeholder="例如：购买粉笔、收取班费" required>
+                    </div>
+
+                    <!-- Amount -->
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="amount">
+                            金额 (¥)
+                        </label>
+                        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                            type="number" step="0.01" id="amount" placeholder="0.00" required>
+                    </div>
+
+                    <!-- Type Selector -->
+                    <div>
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="type">
+                            类型
+                        </label>
+                        <select id="type" class="shadow border rounded w-full py-2 px-3 text-gray-700 bg-white focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                            <option value="expense">支出 (-)</option>
+                            <option value="income">收入 (+)</option>
+                        </select>
+                    </div>
+
+                    <!-- Date -->
+                    <div class="col-span-1 md:col-span-2">
+                        <label class="block text-gray-700 text-sm font-bold mb-2" for="date">
+                            日期
+                        </label>
+                        <input class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:ring-2 focus:ring-indigo-500" 
+                            type="date" id="date" required>
+                    </div>
+                </div>
+                <button class="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded focus:outline-none focus:shadow-outline transition duration-150 ease-in-out" type="submit">
+                    添加记录
+                </button>
+            </form>
+        </div>
+
+        <!-- History List -->
+        <div class="bg-white rounded-xl shadow-md p-6">
+            <h3 class="text-lg font-semibold mb-4 border-b pb-2">收支明细</h3>
+            <ul id="list" class="space-y-3">
+                <!-- Transactions will be injected here by JS -->
+                <li class="text-center text-gray-400 py-4">暂无记录</li>
+            </ul>
+        </div>
+    </div>
+
+    <script>
+        // State Management
+        const balanceEl = document.getElementById('balance');
+        const money_plusEl = document.getElementById('money-plus');
+        const money_minusEl = document.getElementById('money-minus');
+        const listEl = document.getElementById('list');
+        const form = document.getElementById('form');
+        const text = document.getElementById('text');
+        const amount = document.getElementById('amount');
+        const typeSelect = document.getElementById('type');
+        const dateInput = document.getElementById('date');
+
+        // Set default date to today
+        dateInput.valueAsDate = new Date();
+
+        // Retrieve transactions from local storage
+        let transactions = localStorage.getItem('classFundTransactions') !== null ? 
+            JSON.parse(localStorage.getItem('classFundTransactions')) : [];
+
+        // Add transaction
+        function addTransaction(e) {
+            e.preventDefault();
+
+            if (text.value.trim() === '' || amount.value.trim() === '') {
+                alert('请填写完整的描述和金额');
+                return;
+            }
+
+            const transactionType = typeSelect.value;
+            const amountValue = +amount.value;
+
+            // Create ID
+            const transaction = {
+                id: generateID(),
+                text: text.value,
+                amount: amountValue, // Store absolute value
+                type: transactionType,
+                date: dateInput.value
+            };
+
+            transactions.push(transaction);
+
+            addTransactionDOM(transaction);
+            updateValues();
+            updateLocalStorage();
+
+            // Reset form
+            text.value = '';
+            amount.value = '';
+            // keep date as is or reset to today if preferred
+        }
+
+        // Generate random ID
+        function generateID() {
+            return Math.floor(Math.random() * 100000000);
+        }
+
+        // Add transactions to DOM list
+        function addTransactionDOM(transaction) {
+            // Get sign
+            const sign = transaction.type === 'expense' ? '-' : '+';
+            const colorClass = transaction.type === 'expense' ? 'border-red-500' : 'border-green-500';
+            const textClass = transaction.type === 'expense' ? 'text-red-600' : 'text-green-600';
+            
+            const item = document.createElement('li');
+
+            item.classList.add('bg-gray-50', 'border-l-4', colorClass, 'shadow-sm', 'p-3', 'rounded-r', 'flex', 'justify-between', 'items-center', 'relative', 'group');
+
+            item.innerHTML = `
+                <div class="flex flex-col">
+                    <span class="font-medium text-gray-800">${transaction.text}</span>
+                    <span class="text-xs text-gray-500">${transaction.date}</span>
+                </div>
+                <div class="flex items-center">
+                    <span class="font-bold ${textClass} mr-4">${sign}¥${Math.abs(transaction.amount).toFixed(2)}</span>
+                    <button class="delete-btn opacity-0 group-hover:opacity-100 transition-opacity text-gray-400 hover:text-red-500 focus:outline-none" onclick="removeTransaction(${transaction.id})">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M9 2a1 1 0 00-.894.553L7.382 4H4a1 1 0 000 2v10a2 2 0 002 2h8a2 2 0 002-2V6a1 1 0 100-2h-3.382l-.724-1.447A1 1 0 0011 2H9zM7 8a1 1 0 012 0v6a1 1 0 11-2 0V8zm5-1a1 1 0 00-1 1v6a1 1 0 102 0V8a1 1 0 00-1-1z" clip-rule="evenodd" />
+                        </svg>
+                    </button>
+                </div>
+            `;
+
+            listEl.appendChild(item);
+        }
+
+        // Update the balance, income and expense
+        function updateValues() {
+            const incomeAmounts = transactions
+                .filter(t => t.type === 'income')
+                .map(t => t.amount);
+                
+            const expenseAmounts = transactions
+                .filter(t => t.type === 'expense')
+                .map(t => t.amount);
+
+            const totalIncome = incomeAmounts.reduce((acc, item) => (acc += item), 0).toFixed(2);
+            const totalExpense = expenseAmounts.reduce((acc, item) => (acc += item), 0).toFixed(2);
+            
+            const total = (totalIncome - totalExpense).toFixed(2);
+
+            balanceEl.innerText = `¥${total}`;
+            money_plusEl.innerText = `+¥${totalIncome}`;
+            money_minusEl.innerText = `-¥${totalExpense}`;
+            
+            // Handle Empty State
+            if (transactions.length === 0) {
+                listEl.innerHTML = '<li class="text-center text-gray-400 py-4">暂无记录，快去添加第一笔班费吧！</li>';
+            }
+        }
+
+        // Remove transaction by ID
+        function removeTransaction(id) {
+            if(confirm('确定要删除这条记录吗？')) {
+                transactions = transactions.filter(transaction => transaction.id !== id);
+                updateLocalStorage();
+                init();
+            }
+        }
+
+        // Update local storage transactions
+        function updateLocalStorage() {
+            localStorage.setItem('classFundTransactions', JSON.stringify(transactions));
+        }
+
+        // Init app
+        function init() {
+            listEl.innerHTML = '';
+            transactions.sort((a, b) => new Date(b.date) - new Date(a.date)); // Sort by date descending
+            transactions.forEach(addTransactionDOM);
+            updateValues();
+        }
+
+        init();
+
+        form.addEventListener('submit', addTransaction);
+    </script>
+</body>
+</html>
